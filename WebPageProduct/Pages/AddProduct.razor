@@ -1,0 +1,87 @@
+﻿@page "/product/add"
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@using WebPageProduct.Models
+
+<PageTitle>Add Product</PageTitle>
+
+<h3 class="text-center">Add Product</h3>
+
+<form @onsubmit="addProduct">
+    <div class="form-group">
+        <label>ชื่อสินค้า</label>
+        <input type="text" @bind="productObj.Name" class="form-control">
+    </div>
+    <div class="form-group">
+        <label>ราคา</label>
+        <input type="number" @bind="productObj.Price" class="form-control" step="any">
+    </div>
+    <button type="submit" class="btn btn-primary my-2">เพิ่ม</button>
+</form>
+
+@if (showPopUp)
+{
+        <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">แจ้งเตือน</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p>@message</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" @onclick="closePopUp">ตกลง</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+}
+
+@code {
+
+    private ProductModelV2 productObj = new ProductModelV2();
+    private string? message;
+    private bool confirm = false;
+    private bool showPopUp = false;
+
+    private async Task addProduct()
+    {
+        var newProduct = new ProductModelV2
+        {
+            Name = productObj.Name,
+            Price = productObj.Price
+        };
+        try
+        {
+            var response = await Http.PostAsJsonAsync<ProductModelV2>("api/products/", newProduct);
+            if (response.IsSuccessStatusCode)
+            {
+                message = "เพิ่มสินค้าสำเร็จ";
+                confirm = true;
+                showPopUp = true;
+            }
+            else
+            {
+                message = $"เกิดข้อผิดพลาด: {response.ReasonPhrase}";
+                showPopUp = true;
+            }
+        }
+        catch(Exception e)
+        {
+            message = "เกิดข้อผิดพลาด ไม่สามารถเพิ่มสินค้าได้";
+            showPopUp = true;
+        }
+    }
+
+    private void closePopUp()
+    {
+        showPopUp = false;
+        if (confirm)
+        {
+            Navigation.NavigateTo("/product");
+        }
+    }
+}

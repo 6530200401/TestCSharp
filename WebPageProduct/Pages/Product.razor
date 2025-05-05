@@ -1,0 +1,207 @@
+﻿@page "/product"
+@inject HttpClient Http
+
+<PageTitle>Product</PageTitle>
+
+<div class="text-center mt-3">
+    <h3 >Products</h3>
+</div>
+
+<div class="container mt-4 mb-1">
+    <div class="d-flex justify-content-between align-items-end">
+        <div class="d-flex">
+            <form class="d-flex align-items-end me-2" @onsubmit="getProductById">
+                <div class="me-2">
+                    <label class="form-label">เลขสินค้า</label>
+                    <input type="text" class="form-control" placeholder="กรอกเลขสินค้า" @bind="searchId" />
+                </div>
+                <button class="btn btn-primary " type="submit">ค้นหา</button>
+            </form>
+            <button class="btn btn-primary align-self-end" @onclick="showAllProduct">แสดงรายการทั้งหมด</button>
+        </div>
+
+        <div class="align-self-end">
+            <a class="btn btn-outline-primary" href="product/add">
+                <i class="bi bi-plus-square"></i> เพิ่มสินค้า
+            </a>
+        </div>
+    </div>
+</div>
+
+<br />
+
+
+@if (productObj == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Product ID</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>แก้ไข</th>
+                    <th>ลบ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in productObj)
+                {
+                    <tr>
+                        <td>@product.ProductId</td>
+                        <td>@product.Name</td>
+                        <td>@product.Price</td>
+                        <td><a class="btn btn-outline-warning" href="product/edit/@product.ProductId"  
+                            ><i class="bi bi-pencil-square"></i></a></td> 
+                        <td><button class="btn btn-outline-danger" @onclick="() => {showWarningDeletePopUp = true; tempId = product.ProductId;}"><i class="bi bi-trash-fill"></i></button></td> 
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+        @if (searchConfirm)
+        {
+            <center><h5>@message</h5></center>
+
+        }
+    </div>
+}
+
+@if (showWarningDeletePopUp)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">แจ้งเตือน</h5>
+                </div>
+                <div class="modal-body">
+                    <p>คุณต้องการที่จะลบสินค้านี้จริงๆใช่หรือไม่</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" @onclick="() => deleteProduct(tempId)">ตกลง</button>
+                    <button type="button" class="btn btn-primary" @onclick="() => showWarningDeletePopUp = false">ยกเลิก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showConfirmDeletePopUp)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">แจ้งเตือน</h5>
+                </div>
+                <div class="modal-body">
+                    @if (message == null)
+                    {
+                        <p><em>Loading...</em></p>
+                    }
+                    else
+                    {
+                        <p>@message</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" @onclick="() => showConfirmDeletePopUp = false">ตกลง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@using WebPageProduct.Models
+@code {
+    private ProductModel[]? productObj;
+    private string searchId = "";
+    private string? message;
+    private bool searchConfirm = false;
+    private bool showWarningDeletePopUp = false;
+    private bool showConfirmDeletePopUp = false;
+    private int tempId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        productObj = await Http.GetFromJsonAsync<ProductModel[]>("api/products");
+    }
+
+    private async Task showAllProduct()
+    {
+        searchConfirm = false;
+        productObj = await Http.GetFromJsonAsync<ProductModel[]>("api/products");
+    }
+
+    private async Task getProductById()
+    {
+        searchConfirm = false;
+        if (int.TryParse(searchId,out int id))
+        {
+            try
+            {
+                var response = await Http.GetAsync($"api/products/{id}");
+
+                if(response.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    var searchProductObj = await response.Content.ReadFromJsonAsync<ProductModel>();
+                    if(searchProductObj != null)
+                    {
+                        productObj = new ProductModel[] { searchProductObj };
+
+                    }
+                }
+
+                else if(response.StatusCode == System.Net.HttpStatusCode.NoContent)
+                {
+                    productObj = Array.Empty<ProductModel>();
+                    message = "ไม่พบข้อมูล";
+                    searchConfirm = true;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error: {e.Message}");
+                productObj = Array.Empty<ProductModel>();
+                message = "เกิดข้อผิดพลาด";
+                searchConfirm = true;
+            }
+        }
+        else
+        {
+            productObj = Array.Empty<ProductModel>();
+            message = "กรุณากรอกเลขสินค้าให้ถูกต้อง";
+            searchConfirm = true;
+        }
+    }
+
+    private async Task deleteProduct(int id)
+    {
+        message = null;
+        showWarningDeletePopUp = false;
+        showConfirmDeletePopUp = true;
+        var response = await Http.DeleteAsync($"api/products/{id}");
+
+        if (response.StatusCode == System.Net.HttpStatusCode.OK)
+        {
+            productObj = await Http.GetFromJsonAsync<ProductModel[]>("api/products");
+            message = "ลบสำเร็จ";
+        }
+
+        else if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+        {
+            message = "ไม่พบข้อมูล";
+        }
+    }
+
+    // private void closePopUp()
+    // {
+    //     showPopUp = false;
+    // }
+}
+
